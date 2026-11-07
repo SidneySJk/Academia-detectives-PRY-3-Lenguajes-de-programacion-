@@ -1,8 +1,9 @@
 import express from 'express'
-import { mkdir, rename, writeFile } from 'node:fs/promises'
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { consultar, ejecutar, PrologError } from './prolog.js'
+import { nombreArchivo, validarConsulta, validarHechos, validarParametro } from './validacion.js'
 
 const directorio = path.dirname(fileURLToPath(import.meta.url))
 const CASOS = path.join(directorio, 'casos')
@@ -13,6 +14,9 @@ let caso = null
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
+
+app.param('persona', validarParametro)
+app.param('lugar', validarParametro)
 
 // Crea un manejador GET que traduce parametros de la ruta a una accion de api.pl.
 const accion = (nombre, ...parametros) => async (req, res) => {
@@ -35,10 +39,9 @@ app.get('/api/personas/:persona/sospechoso', accion('posible_sospechoso', 'perso
 app.get('/api/personas/:persona/acceso/:lugar', accion('tiene_acceso', 'persona', 'lugar'))
 
 // Consulta generica: { "predicado": "tiene_coartada", "args": ["ana"] }.
-// api.pl solo acepta los predicados de su lista de acciones.
 app.post('/api/consulta', async (req, res) => {
-  const { predicado, args = [] } = req.body ?? {}
-  res.json(await consultar(String(predicado), args.map(String), caso?.ruta))
+  const { predicado, args } = validarConsulta(req.body)
+  res.json(await consultar(predicado, args, caso?.ruta))
 })
 
 app.get('/api/caso', (req, res) => {
@@ -48,10 +51,8 @@ app.get('/api/caso', (req, res) => {
 // Recibe el contenido de un hechos.pl: { "nombre": "caso2.pl", "contenido": "persona(ana). ..." }.
 // Se prueba en un archivo temporal y solo se activa si Prolog lo carga sin errores.
 app.post('/api/caso', async (req, res) => {
-  const { nombre = 'hechos.pl', contenido } = req.body ?? {}
-  if (typeof contenido !== 'string' || contenido.trim() === '') {
-    throw new PrologError('Debe enviar el contenido del archivo de hechos', 400)
-  }
+  const contenido = validarHechos(req.body?.contenido)
+  const nombre = nombreArchivo(req.body?.nombre)
 
   await mkdir(CASOS, { recursive: true })
   const prueba = path.join(CASOS, 'prueba.pl')
@@ -60,11 +61,12 @@ app.post('/api/caso', async (req, res) => {
 
   const { ok, stderr } = await ejecutar('personas', [], prueba)
   if (!ok || /ERROR/.test(stderr)) {
+    await rm(prueba, { force: true })
     throw new PrologError(`El archivo no se pudo cargar en Prolog: ${stderr.trim()}`, 400)
   }
 
   await rename(prueba, actual)
-  caso = { nombre: String(nombre), ruta: actual }
+  caso = { nombre, ruta: actual }
   res.json({ origen: 'cargado', nombre: caso.nombre, personas: await consultar('personas', [], actual) })
 })
 
