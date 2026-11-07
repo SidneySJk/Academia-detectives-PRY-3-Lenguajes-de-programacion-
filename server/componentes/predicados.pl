@@ -40,10 +40,6 @@ tiene_acceso(Persona, Lugar) :-
     puede_obtener(Persona, Objeto),
     \+ acceso(Persona, Lugar).
 
-evidencia_de(Persona, Evidencias) :-
-    persona(Persona),
-    findall(Evidencia, corresponde(Evidencia, Persona), Evidencias).
-
 % Minutos de diferencia con los que dos registros se consideran el mismo momento.
 margen_mismo_momento(5).
 
