@@ -41,17 +41,64 @@ tiene_acceso(Persona, Lugar) :-
     \+ acceso(Persona, Lugar).
 
 evidencia_de(Persona, Evidencias) :-
-    (persona(Persona) ->
-    findall(Evidencia, corresponde(Evidencia, Persona), Evidencias);
-    Evidencias == []).
-
-evidencia_de(Persona, Evidencias) :-
+    persona(Persona),
     findall(Evidencia, corresponde(Evidencia, Persona), Evidencias).
 
+% Minutos de diferencia con los que dos registros se consideran el mismo momento.
+margen_mismo_momento(5).
+
+mismo_momento(Hora1, Hora2) :-
+    margen_mismo_momento(Margen),
+    hora_a_minutos(Hora1, Minutos1),
+    hora_a_minutos(Hora2, Minutos2),
+    abs(Minutos1 - Minutos2) =< Margen.
+
+% Un testimonio queda contradicho si un registro de movimiento ubica a la
+% persona en otro lugar en el mismo momento.
+testimonio_contradicho(Persona, Lugar, Hora) :-
+    estuvo(Persona, OtroLugar, HoraRegistro),
+    OtroLugar \= Lugar,
+    mismo_momento(Hora, HoraRegistro).
+
+% Coartada: un testimonio la ubica lejos del lugar del evento durante la
+% ventana del evento y ningun registro de movimiento lo contradice.
 tiene_coartada(Persona) :-
-    testimonio(Persona, OtroLugar, HoraTestimonio),
-    estuvo(Persona, OtroLugar, HoraMovimiento),
-    evento(_ , LugarEvento, HoraEvento),
-    HoraTestimonio =:= HoraEvento,
-    HoraMovimiento =:= HoraEvento,
-    OtroLugar \= LugarEvento.
+    testimonio(Persona, Lugar, Hora),
+    en_ventana_evento(Hora),
+    evento(_, LugarEvento, _),
+    Lugar \= LugarEvento,
+    \+ testimonio_contradicho(Persona, Lugar, Hora).
+
+tiene_contradiccion(Persona) :-
+    testimonio(Persona, Lugar, Hora),
+    testimonio_contradicho(Persona, Lugar, Hora).
+
+% La persona queda ligada al evento si estuvo en su lugar durante la
+% ventana del evento o si le corresponde una evidencia hallada alli.
+vinculado_al_evento(Persona) :-
+    evento(_, LugarEvento, _),
+    estuvo(Persona, LugarEvento, Hora),
+    en_ventana_evento(Hora).
+
+vinculado_al_evento(Persona) :-
+    evento(_, LugarEvento, _),
+    evidencia(Evidencia, LugarEvento, _),
+    corresponde(Evidencia, Persona).
+
+% Sospecha por oportunidad: podia entrar al lugar del evento, esta ligada a
+% el y no tiene coartada.
+cumple_sospecha(Persona) :-
+    evento(_, LugarEvento, _),
+    tiene_acceso(Persona, LugarEvento),
+    vinculado_al_evento(Persona),
+    \+ tiene_coartada(Persona).
+
+% Sospecha por inconsistencia: esta ligada al evento y su testimonio
+% contradice los registros, aunque no tuviera acceso autorizado.
+cumple_sospecha(Persona) :-
+    vinculado_al_evento(Persona),
+    tiene_contradiccion(Persona).
+
+posible_sospechoso(Persona) :-
+    persona(Persona),
+    once(cumple_sospecha(Persona)).
