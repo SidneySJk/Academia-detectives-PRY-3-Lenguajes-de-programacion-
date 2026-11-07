@@ -103,3 +103,84 @@ posible_sospechoso(Persona) :-
 % reglas de sospecha.
 posibles_responsables(Lista) :-
     findall(Persona, (persona(Persona), posible_sospechoso(Persona)), Lista).
+
+% Convierte una hora HHMM (1950) a texto ("19:50").
+hora_texto(Hora, Texto) :-
+    H is Hora // 100,
+    M is Hora mod 100,
+    format(string(Texto), "~d:~|~`0t~d~2+", [H, M]).
+
+% Cada clausula de explicacion/2 construye una justificacion a partir de los
+% hechos; por backtracking se obtienen todas las explicaciones de la persona.
+explicaciones(Persona, Explicacion) :-
+    persona(Persona),
+    explicacion(Persona, Explicacion).
+
+explicacion(Persona, Explicacion) :-
+    evento(_, LugarEvento, _),
+    acceso(Persona, LugarEvento),
+    format(string(Explicacion),
+        "Tiene acceso autorizado a ~w, lugar del evento.", [LugarEvento]).
+
+explicacion(Persona, Explicacion) :-
+    evento(_, LugarEvento, _),
+    accesoPorObjeto(LugarEvento, Objeto),
+    puede_obtener(Persona, Objeto),
+    \+ acceso(Persona, LugarEvento),
+    format(string(Explicacion),
+        "Puede entrar a ~w porque puede obtener el objeto ~w.",
+        [LugarEvento, Objeto]).
+
+explicacion(Persona, Explicacion) :-
+    evento(NombreEvento, LugarEvento, HoraEvento),
+    estuvo(Persona, LugarEvento, Hora),
+    en_ventana_evento(Hora),
+    hora_texto(Hora, Texto),
+    hora_texto(HoraEvento, TextoEvento),
+    format(string(Explicacion),
+        "Estuvo en ~w a las ~w, cerca del evento ~w (~w).",
+        [LugarEvento, Texto, NombreEvento, TextoEvento]).
+
+explicacion(Persona, Explicacion) :-
+    corresponde(Evidencia, Persona),
+    evidencia(Evidencia, Lugar, Hora),
+    hora_texto(Hora, Texto),
+    format(string(Explicacion),
+        "La evidencia ~w, hallada en ~w a las ~w, le corresponde.",
+        [Evidencia, Lugar, Texto]).
+
+explicacion(Persona, Explicacion) :-
+    testimonio(Persona, Lugar, Hora),
+    estuvo(Persona, OtroLugar, HoraRegistro),
+    OtroLugar \= Lugar,
+    mismo_momento(Hora, HoraRegistro),
+    hora_texto(Hora, Texto),
+    hora_texto(HoraRegistro, TextoRegistro),
+    format(string(Explicacion),
+        "Declaro estar en ~w a las ~w, pero el registro indica que estuvo en ~w a las ~w.",
+        [Lugar, Texto, OtroLugar, TextoRegistro]).
+
+explicacion(Persona, Explicacion) :-
+    testimonio(Persona, Lugar, Hora),
+    en_ventana_evento(Hora),
+    evento(_, LugarEvento, _),
+    Lugar \= LugarEvento,
+    \+ testimonio_contradicho(Persona, Lugar, Hora),
+    hora_texto(Hora, Texto),
+    format(string(Explicacion),
+        "Su testimonio indica que estaba en ~w a las ~w, lejos de ~w y sin contradicciones: posible coartada.",
+        [Lugar, Texto, LugarEvento]).
+
+explicacion(Persona, Explicacion) :-
+    evento(_, LugarEvento, _),
+    once(tiene_acceso(Persona, LugarEvento)),
+    once(vinculado_al_evento(Persona)),
+    \+ tiene_coartada(Persona),
+    format(string(Explicacion),
+        "Conclusion: posible sospechoso por oportunidad (acceso a ~w, vinculo con el evento y sin coartada).",
+        [LugarEvento]).
+
+explicacion(Persona, Explicacion) :-
+    once(vinculado_al_evento(Persona)),
+    once(tiene_contradiccion(Persona)),
+    Explicacion = "Conclusion: posible sospechoso por inconsistencia (vinculo con el evento y testimonio contradicho).".
