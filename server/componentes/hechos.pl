@@ -1,6 +1,3 @@
-:- module(hechos, [persona/1, objeto/1, lugar/2,
-    acceso/2, accesoPorObjeto/2,  corresponde/2,
-    estuvo/3, evento/3, evidencia/3, testimonio/3]).
 % Personas
 persona(ana).
 persona(bruno).
