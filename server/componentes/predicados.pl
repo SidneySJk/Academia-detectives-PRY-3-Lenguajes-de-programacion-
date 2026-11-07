@@ -1,4 +1,10 @@
-:- use_module('hechos.pl').
+% Hechos del caso: se declaran dinamicos para que un hechos.pl de reemplazo
+% que omita alguno no provoque errores de existencia.
+:- dynamic persona/1, lugar/2, objeto/1, ubicado/2,
+    acceso/2, accesoPorObjeto/2, estuvo/3, evento/3,
+    evidencia/3, corresponde/2, testimonio/3.
+
+:- consult('hechos.pl').
 
 hora_a_segundos(HoraFormato, Segundos) :-
     atomic_list_concat([H, M], ':', HoraFormato),
