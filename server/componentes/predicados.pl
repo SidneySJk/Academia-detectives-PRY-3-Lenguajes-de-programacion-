@@ -184,3 +184,81 @@ explicacion(Persona, Explicacion) :-
     once(vinculado_al_evento(Persona)),
     once(tiene_contradiccion(Persona)),
     Explicacion = "Conclusion: posible sospechoso por inconsistencia (vinculo con el evento y testimonio contradicho).".
+
+% Una solucion es valida si la persona sigue cumpliendo la sospecha, pudo
+% llegar al lugar del evento (acceso o presencia registrada) y ninguna
+% coartada la aleja de el.
+solucion_valida(Persona) :-
+    posible_sospechoso(Persona),
+    evento(_, LugarEvento, _),
+    once((tiene_acceso(Persona, LugarEvento) ; estuvo(Persona, LugarEvento, _))),
+    \+ tiene_coartada(Persona).
+
+% Reune toda la informacion que sustenta la conclusion sobre una persona.
+reporte(Persona, reporte(Persona, Evidencias, Movimientos, Accesos,
+                         Coartadas, Contradicciones, Explicaciones, Valida)) :-
+    findall(evidencia(Evidencia, Lugar, Hora),
+        (corresponde(Evidencia, Persona), evidencia(Evidencia, Lugar, Hora)),
+        Evidencias),
+    findall(estuvo(Lugar, Hora), estuvo(Persona, Lugar, Hora), Movimientos),
+    findall(Lugar, tiene_acceso(Persona, Lugar), Accesos),
+    findall(testimonio(Lugar, Hora),
+        (testimonio(Persona, Lugar, Hora),
+         en_ventana_evento(Hora),
+         evento(_, LugarEvento, _),
+         Lugar \= LugarEvento,
+         \+ testimonio_contradicho(Persona, Lugar, Hora)),
+        Coartadas),
+    findall(contradiccion(Lugar, Hora, OtroLugar, HoraRegistro),
+        (testimonio(Persona, Lugar, Hora),
+         estuvo(Persona, OtroLugar, HoraRegistro),
+         OtroLugar \= Lugar,
+         mismo_momento(Hora, HoraRegistro)),
+        Contradicciones),
+    findall(Explicacion, explicaciones(Persona, Explicacion), Explicaciones),
+    (solucion_valida(Persona) -> Valida = si ; Valida = no).
+
+resolver_caso :-
+    \+ evento(_, _, _),
+    !,
+    writeln("El caso no tiene un evento central definido.").
+
+resolver_caso :-
+    evento(Nombre, Lugar, Hora),
+    hora_texto(Hora, Texto),
+    format("Evento: ~w en ~w a las ~w~n", [Nombre, Lugar, Texto]),
+    posibles_responsables(Responsables),
+    (   Responsables == []
+    ->  writeln("Ninguna persona cumple las reglas para ser responsable.")
+    ;   format("Posibles responsables: ~w~n", [Responsables]),
+        forall(member(Persona, Responsables), mostrar_reporte(Persona))
+    ).
+
+mostrar_reporte(Persona) :-
+    reporte(Persona, reporte(_, Evidencias, Movimientos, Accesos,
+                             Coartadas, Contradicciones, Explicaciones, Valida)),
+    format("~n== ~w ==~n", [Persona]),
+    titulo("Evidencias", Evidencias),
+    forall(member(evidencia(E, L, H), Evidencias),
+        (hora_texto(H, T), format("  - ~w en ~w a las ~w~n", [E, L, T]))),
+    titulo("Movimientos", Movimientos),
+    forall(member(estuvo(L, H), Movimientos),
+        (hora_texto(H, T), format("  - ~w a las ~w~n", [L, T]))),
+    format("Accesos: ~w~n", [Accesos]),
+    titulo("Coartadas", Coartadas),
+    forall(member(testimonio(L, H), Coartadas),
+        (hora_texto(H, T), format("  - ~w a las ~w~n", [L, T]))),
+    titulo("Contradicciones", Contradicciones),
+    forall(member(contradiccion(L, H, L2, H2), Contradicciones),
+        (hora_texto(H, T), hora_texto(H2, T2),
+         format("  - dijo ~w a las ~w, registro ~w a las ~w~n", [L, T, L2, T2]))),
+    writeln("Justificacion:"),
+    forall(member(Explicacion, Explicaciones), format("  - ~w~n", [Explicacion])),
+    format("Solucion valida: ~w~n", [Valida]).
+
+titulo(Titulo, []) :-
+    !,
+    format("~w: ninguna~n", [Titulo]).
+
+titulo(Titulo, _) :-
+    format("~w:~n", [Titulo]).
