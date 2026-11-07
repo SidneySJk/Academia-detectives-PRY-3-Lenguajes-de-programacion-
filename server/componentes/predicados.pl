@@ -23,12 +23,22 @@ en_ventana_evento(Hora) :-
     hora_a_minutos(HoraEvento, MinutosEvento),
     abs(Minutos - MinutosEvento) =< Margen.
 
+% Una persona puede obtener un objeto si tiene acceso directo al lugar
+% donde esta ubicado, o si el objeto es una evidencia que le corresponde.
+puede_obtener(Persona, Objeto) :-
+    ubicado(Objeto, Lugar),
+    acceso(Persona, Lugar).
+
+puede_obtener(Persona, Objeto) :-
+    corresponde(Objeto, Persona).
+
 tiene_acceso(Persona, Lugar) :-
     acceso(Persona, Lugar).
 
 tiene_acceso(Persona, Lugar) :-
     accesoPorObjeto(Lugar, Objeto),
-    estuvo(Persona, Lugar, _).
+    puede_obtener(Persona, Objeto),
+    \+ acceso(Persona, Lugar).
 
 evidencia_de(Persona, Evidencias) :-
     (persona(Persona) ->
