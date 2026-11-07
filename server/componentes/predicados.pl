@@ -98,3 +98,8 @@ cumple_sospecha(Persona) :-
 posible_sospechoso(Persona) :-
     persona(Persona),
     once(cumple_sospecha(Persona)).
+
+% Recorre todas las personas del caso y conserva las que cumplen las
+% reglas de sospecha.
+posibles_responsables(Lista) :-
+    findall(Persona, (persona(Persona), posible_sospechoso(Persona)), Lista).
