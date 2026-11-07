@@ -6,11 +6,22 @@
 
 :- consult('hechos.pl').
 
-hora_a_segundos(HoraFormato, Segundos) :-
-    atomic_list_concat([H, M], ':', HoraFormato),
-    atom_number(H, Horas),
-    atom_number(M, Minutos),
-    Segundos is Horas * 3600 + Minutos * 60.
+% Convierte una hora HHMM (1955) a minutos desde la medianoche (1195),
+% para que las restas entre horas sean correctas (1955 + 15 no es 2010).
+hora_a_minutos(Hora, Minutos) :-
+    Minutos is (Hora // 100) * 60 + Hora mod 100.
+
+% Minutos antes y despues del evento que se consideran relevantes.
+margen_evento(15).
+
+% Una hora esta en la ventana del evento si dista a lo sumo margen_evento
+% minutos de la hora del evento central.
+en_ventana_evento(Hora) :-
+    evento(_, _, HoraEvento),
+    margen_evento(Margen),
+    hora_a_minutos(Hora, Minutos),
+    hora_a_minutos(HoraEvento, MinutosEvento),
+    abs(Minutos - MinutosEvento) =< Margen.
 
 tiene_acceso(Persona, Lugar) :-
     acceso(Persona, Lugar).
