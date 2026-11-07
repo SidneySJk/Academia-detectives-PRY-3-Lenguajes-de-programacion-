@@ -4,9 +4,17 @@
     acceso/2, accesoPorObjeto/2, estuvo/3, evento/3,
     evidencia/3, corresponde/2, testimonio/3.
 
+% El puente en Node puede indicar otro archivo de hechos con la variable de
+% entorno HECHOS_PL; si no existe se usa hechos.pl junto a este archivo.
+archivo_hechos(Ruta) :-
+    getenv('HECHOS_PL', Ruta),
+    !.
+
+archivo_hechos('hechos.pl').
+
 % Se carga como UTF-8 para que las tildes de las descripciones no se rompan
 % en Windows, cuya codificacion por defecto no es UTF-8.
-:- load_files('hechos.pl', [encoding(utf8)]).
+:- archivo_hechos(Ruta), load_files(Ruta, [encoding(utf8)]).
 
 % Convierte una hora HHMM (1955) a minutos desde la medianoche (1195),
 % para que las restas entre horas sean correctas (1955 + 15 no es 2010).
